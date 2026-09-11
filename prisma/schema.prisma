@@ -1,0 +1,421 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ──────────────────────────────────────────────
+// USUARIOS
+// ──────────────────────────────────────────────
+model Usuario {
+  id             Int        @id @default(autoincrement())
+  nombreCompleto String     @map("nombre_completo")
+  dni            String?    @unique
+  email          String?
+  telefono       String?
+  username       String     @unique
+  password       String
+  rol            String     @default("EMPLEADO") // DUENO, EMPLEADO
+  activo         Boolean    @default(true)
+  fechaCreacion  DateTime   @default(now()) @map("fecha_creacion")
+  ventas         Venta[]
+  consultasAsignadas Consulta[]
+
+  @@map("usuarios")
+}
+
+// ──────────────────────────────────────────────
+// SUCURSALES
+// ──────────────────────────────────────────────
+model Sucursal {
+  id            Int      @id @default(autoincrement())
+  nombre        String
+  activa        Boolean  @default(true)
+  esCasaCentral Boolean  @default(false) @map("es_casa_central")
+  horarios      String?
+  email         String?
+  telefono      String?
+  whatsapp      String?
+  calle         String?
+  numero        String?
+  pisoDepto     String?  @map("piso_depto")
+  ciudad        String?
+  provincia     String?
+  codigoPostal  String?  @map("codigo_postal")
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion")
+
+  @@map("sucursales")
+}
+
+// ──────────────────────────────────────────────
+// CLIENTES
+// ──────────────────────────────────────────────
+model Cliente {
+  id             Int      @id @default(autoincrement())
+  nombreCompleto String   @map("nombre_completo")
+  dni            String   @unique
+  email          String?
+  telefono       String?
+  calle          String?
+  numero         String?
+  ciudad         String?
+  provincia      String?
+  pais           String?  @default("ARGENTINA")
+  codigoPostal   String?  @map("codigo_postal")
+  fechaCreacion  DateTime @default(now()) @map("fecha_creacion")
+  ventas         Venta[]
+
+  @@map("clientes")
+}
+
+// ──────────────────────────────────────────────
+// VEHÍCULO (tabla padre — campos comunes)
+// ──────────────────────────────────────────────
+model Vehiculo {
+  id             Int      @id @default(autoincrement())
+  tipoVehiculo   String   @default("AUTOMOVIL") @map("tipo_vehiculo") // AUTOMOVIL, CAMION, EMBARCACION, MOTOCICLETA, MOTORHOME
+
+  // Identificación
+  marca          String
+  modelo         String
+  version        String?
+  color          String?
+  anio           Int
+  patente        String?
+  vin            String?
+  numeroMotor    String?  @map("numero_motor")
+
+  // Comercial
+  precio         Float
+  costoCompra    Float?   @map("costo_compra")
+  estado         String   @default("DISPONIBLE") @map("estado") // DISPONIBLE, VENDIDO, RESERVADO
+  descripcion    String?  @db.Text
+  imagenesUrls   String?  @map("imagenes_urls") @db.Text // JSON string
+
+  // Técnico común
+  kilometraje              Int?    @map("kilometraje")
+  horasUso                 Int?    @map("horas_uso")
+  primeraMano              Boolean @default(false) @map("primera_mano")
+  combustible              String?
+  tipoDireccion            String? @map("tipo_direccion")
+  largoMetros              Float?  @map("largo_metros")
+  anchoMetros              Float?  @map("ancho_metros")
+  altoMetros               Float?  @map("alto_metros")
+  pesoKg                   Float?  @map("peso_kg")
+  capacidadTanqueCombustible Float? @map("capacidad_tanque_combustible")
+  potencia                 Int?
+  torqueNm                 Int?    @map("torque_nm")
+
+  // Equipamiento común
+  tieneAireAcondicionado        Boolean @default(false) @map("tiene_aire_acondicionado")
+  tieneAppleCarplayAndroidAuto  Boolean @default(false) @map("tiene_apple_carplay_android_auto")
+  tieneCamaraRetroceso          Boolean @default(false) @map("tiene_camara_retroceso")
+  tieneSensoresEstacionamiento  Boolean @default(false) @map("tiene_sensores_estacionamiento")
+  tieneTechoSolar               Boolean @default(false) @map("tiene_techo_solar")
+
+  fechaCreacion  DateTime @default(now()) @map("fecha_creacion")
+
+  // Integración Mercado Libre
+  mercadoLibreId        String?   @map("mercadolibre_id")
+  mercadoLibrePermalink String?   @map("mercadolibre_permalink")
+  mercadoLibreStatus    String?   @default("NO_PUBLICADO") @map("mercadolibre_status") // NO_PUBLICADO, active, paused, closed, error
+  mercadoLibreSyncedAt  DateTime? @map("mercadolibre_synced_at")
+
+  // Relaciones con tablas hijas (1-a-1)
+  automovil      Automovil?
+  camion         Camion?
+  embarcacion    Embarcacion?
+  motocicleta    Motocicleta?
+  motorhome      Motorhome?
+
+  // Relaciones con otras entidades
+  ventas         Venta[]
+  consultas      Consulta[]
+  gastos         GastoVehiculo[]
+
+  @@map("vehiculos")
+}
+
+// ──────────────────────────────────────────────
+// TABLA HIJA: AUTOMÓVIL
+// ──────────────────────────────────────────────
+model Automovil {
+  id                    Int      @id @default(autoincrement())
+  vehiculoId            Int      @unique @map("vehiculo_id")
+  vehiculo              Vehiculo @relation(fields: [vehiculoId], references: [id], onDelete: Cascade)
+
+  tipoAutomovil         String?  @map("tipo_automovil") // SEDAN, SUV, HATCHBACK, COUPE, PICKUP, etc.
+  motor                 String?
+  transmision           String?  // MANUAL, AUTOMATICA, CVT
+  traccion              String?  // DELANTERA, TRASERA, INTEGRAL
+  tipoFrenosDelanteros  String?  @map("tipo_frenos_delanteros")
+  tipoFrenosTraseros    String?  @map("tipo_frenos_traseros")
+  tipoTapizado          String?  @map("tipo_tapizado")
+  capacidadBaulLitros   Int?     @map("capacidad_baul_litros")
+  cantidadPuertas       Int?     @map("cantidad_puertas")
+  cantidadAsientos      Int?     @map("cantidad_asientos")
+  aceleracion0a100      Float?   @map("aceleracion_0a100")
+  velocidadMaximaKmh    Int?     @map("velocidad_maxima_kmh")
+  airbags               Int?
+  consumoMixtoKmPorLitro Float?  @map("consumo_mixto_km_por_litro")
+  abs                   Boolean  @default(false)
+  controlEstabilidad    Boolean  @default(false) @map("control_estabilidad")
+  controlCruceroAdaptativo Boolean  @default(false) @map("control_crucero_adaptativo")
+  asientosCuero            Boolean  @default(false) @map("asientos_cuero")
+  asientosElectricos       Boolean  @default(false) @map("asientos_electricos")
+  arranqueBotonKeyless     Boolean  @default(false) @map("arranque_boton_keyless")
+  cargadorInalambrico      Boolean  @default(false) @map("cargador_inalambrico")
+  lucesLedAutomaticas      Boolean  @default(false) @map("luces_led_automaticas")
+  frenoEstacionamientoElectrico Boolean @default(false) @map("freno_estacionamiento_electrico")
+  alertaPuntoCiego         Boolean  @default(false) @map("alerta_punto_ciego")
+
+  @@map("automoviles")
+}
+
+// ──────────────────────────────────────────────
+// TABLA HIJA: CAMIÓN
+// ──────────────────────────────────────────────
+model Camion {
+  id                    Int      @id @default(autoincrement())
+  vehiculoId            Int      @unique @map("vehiculo_id")
+  vehiculo              Vehiculo @relation(fields: [vehiculoId], references: [id], onDelete: Cascade)
+
+  capacidadCargaKg      Float?   @map("capacidad_carga_kg")
+  pesoBrutoVehicularKg  Float?   @map("peso_bruto_vehicular_kg")
+  cantidadEjes          Int?     @map("cantidad_ejes")
+  distanciaEntreEjesMm  Int?     @map("distancia_entre_ejes_mm")
+  tipoFreno             String?  @map("tipo_freno")
+  suspension            String?
+  neumaticosCantidad    Int?     @map("neumaticos_cantidad")
+  medidaNeumatico       String?  @map("medida_neumatico")
+  consumoPromedioL100km Float?   @map("consumo_promedio_l100km")
+  tipoCarroceria        String?  @map("tipo_carroceria")
+
+  aireAcondicionadoCabina      Boolean  @default(false) @map("aire_acondicionado_cabina")
+  camaraRetroceso              Boolean  @default(false) @map("camara_retroceso")
+  sensoresEstacionamiento      Boolean  @default(false) @map("sensores_estacionamiento")
+  pantallaMultimedia           Boolean  @default(false) @map("pantalla_multimedia")
+  frenosAireAbs                Boolean  @default(false) @map("frenos_aire_abs")
+  controlEstabilidadEsp        Boolean  @default(false) @map("control_estabilidad_esp")
+  butacaNeumatica              Boolean  @default(false) @map("butaca_neumatica")
+  suspensionNeumaticaCabina    Boolean  @default(false) @map("suspension_neumatica_cabina")
+  controlCrucero               Boolean  @default(false) @map("control_crucero")
+  calefaccionAuxiliar          Boolean  @default(false) @map("calefaccion_auxiliar")
+  frenoMotorRetarder           Boolean  @default(false) @map("freno_motor_retarder")
+  tacografoDigital             Boolean  @default(false) @map("tacografo_digital")
+
+  @@map("camiones")
+}
+
+// ──────────────────────────────────────────────
+// TABLA HIJA: EMBARCACIÓN
+// ──────────────────────────────────────────────
+model Embarcacion {
+  id                      Int      @id @default(autoincrement())
+  vehiculoId              Int      @unique @map("vehiculo_id")
+  vehiculo                Vehiculo @relation(fields: [vehiculoId], references: [id], onDelete: Cascade)
+
+  esloraMetros            Float?   @map("eslora_metros")
+  mangaMetros             Float?   @map("manga_metros")
+  puntalMetros            Float?   @map("puntal_metros")
+  materialCasco           String?  @map("material_casco")
+  tipoEmbarcacion         String?  @map("tipo_embarcacion") // LANCHA, YATE, VELERO, etc.
+  tipoMotor               String?  @map("tipo_motor") // DENTRO_FUERA, FUERA_DE_BORDA, INTERNA
+  capacidadPersonas       Int?     @map("capacidad_personas")
+  pesoMaximoKg            Float?   @map("peso_maximo_kg")
+  marcaMotor              String?  @map("marca_motor")
+  anioMotor               Int?     @map("anio_motor")
+  motor0km                Boolean  @default(false) @map("motor_0km")
+  numeroMotores           Int?     @map("numero_motores")
+  velocidadMaximaNudos    Float?   @map("velocidad_maxima_nudos")
+  capacidadAguaDulceLitros Float?  @map("capacidad_agua_dulce_litros")
+  tieneTrailer            Boolean  @default(false) @map("tiene_trailer")
+  bombaAchique            Boolean  @default(false) @map("bomba_achique")
+  ecosonda                Boolean  @default(false)
+  escaleraPopa            Boolean  @default(false) @map("escalera_popa")
+  audio                   Boolean  @default(false)
+  toldoBimini             Boolean  @default(false) @map("toldo_bimini")
+  cerramientoCompleto     Boolean  @default(false) @map("cerramiento_completo")
+  malacateElectrico       Boolean  @default(false) @map("malacate_electrico")
+  lucesNavegacion         Boolean  @default(false) @map("luces_navegacion")
+  radioVHF                Boolean  @default(false) @map("radio_vhf")
+  duchaPopa               Boolean  @default(false) @map("ducha_popa")
+  barraSki                Boolean  @default(false) @map("barra_ski")
+  solariumProa            Boolean  @default(false) @map("solarium_proa")
+  mesaCockpit             Boolean  @default(false) @map("mesa_cockpit")
+  inodoroMarino           Boolean  @default(false) @map("inodoro_marino")
+  heladeraNautica         Boolean  @default(false) @map("heladera_nautica")
+
+  @@map("embarcaciones")
+}
+
+// ──────────────────────────────────────────────
+// TABLA HIJA: MOTOCICLETA
+// ──────────────────────────────────────────────
+model Motocicleta {
+  id                Int      @id @default(autoincrement())
+  vehiculoId        Int      @unique @map("vehiculo_id")
+  vehiculo          Vehiculo @relation(fields: [vehiculoId], references: [id], onDelete: Cascade)
+
+  cilindradaCc      Int?     @map("cilindrada_cc")
+  motorTiempos      Int?     @map("motor_tiempos")
+  estilo            String?  // DEPORTIVA, NAKED, TOURING, ENDURO, etc.
+  tipoArranque      String?  @map("tipo_arranque")
+  transmisionMoto   String?  @map("transmision_moto")
+  refrigeracion     String?  // LIQUIDA, AIRE
+  alturaAsientoMm   Int?     @map("altura_asiento_mm")
+  tipoLlanta        String?  @map("tipo_llanta")
+  neumaticoDelantero String? @map("neumatico_delantero")
+  neumaticoTrasero  String?  @map("neumatico_trasero")
+
+  abs                          Boolean  @default(false)
+  controlTraccionTcs           Boolean  @default(false) @map("control_traccion_tcs")
+  modosConduccion              Boolean  @default(false) @map("modos_conduccion")
+  quickshifter                 Boolean  @default(false) @map("quickshifter")
+  pantallaTftBluetooth         Boolean  @default(false) @map("pantalla_tft_bluetooth")
+  lucesLed                     Boolean  @default(false) @map("luces_led")
+  punosCalefaccionables        Boolean  @default(false) @map("punos_calefaccionables")
+  controlCrucero               Boolean  @default(false) @map("control_crucero")
+  parabrisasRegulable          Boolean  @default(false) @map("parabrisas_regulable")
+  puertoUsb12v                 Boolean  @default(false) @map("puerto_usb_12v")
+  cubrepunosDefensas           Boolean  @default(false) @map("cubrepunos_defensas")
+  caballeteCentral             Boolean  @default(false) @map("caballete_central")
+
+  @@map("motocicletas")
+}
+
+// ──────────────────────────────────────────────
+// TABLA HIJA: MOTORHOME
+// ──────────────────────────────────────────────
+model Motorhome {
+  id                          Int      @id @default(autoincrement())
+  vehiculoId                  Int      @unique @map("vehiculo_id")
+  vehiculo                    Vehiculo @relation(fields: [vehiculoId], references: [id], onDelete: Cascade)
+
+  capacidadCamas              Int?     @map("capacidad_camas")
+  capacidadBateriasAh         Int?     @map("capacidad_baterias_ah")
+  cantidadPisos               Int?     @map("cantidad_pisos")
+  capacidadTanqueAguaLitros   Float?   @map("capacidad_tanque_agua_litros")
+  capacidadAguasGrisesLitros  Float?   @map("capacidad_aguas_grises_litros")
+  capacidadAguasNegrasLitros  Float?   @map("capacidad_aguas_negras_litros")
+  tieneCocina                 Boolean  @default(false) @map("tiene_cocina")
+  tieneBano                   Boolean  @default(false) @map("tiene_bano")
+  tieneDuchaExterior          Boolean  @default(false) @map("tiene_ducha_exterior")
+  tienePanelesSolares         Boolean  @default(false) @map("tiene_paneles_solares")
+  tieneCalefaccion            Boolean  @default(false) @map("tiene_calefaccion")
+  tieneGenerador              Boolean  @default(false) @map("tiene_generador")
+  tieneTV                     Boolean  @default(false) @map("tiene_tv")
+  toldoExterior               Boolean  @default(false) @map("toldo_exterior")
+  aireAcondicionadoHabitaculo Boolean  @default(false) @map("aire_acondicionado_habitaculo")
+  inversorCorriente220v       Boolean  @default(false) @map("inversor_corriente_220v")
+  heladeraFreezer             Boolean  @default(false) @map("heladera_freezer")
+  termotanqueCalefon          Boolean  @default(false) @map("termotanque_calefon")
+  garrafaGasEnvasado          Boolean  @default(false) @map("garrafa_gas_envasado")
+  escalonElectrico            Boolean  @default(false) @map("escalon_electrico")
+  soporteBicicletasEnganche   Boolean  @default(false) @map("soporte_bicicletas_enganche")
+
+  @@map("motorhomes")
+}
+
+// ──────────────────────────────────────────────
+// VENTA
+// ──────────────────────────────────────────────
+model Venta {
+  id            Int      @id @default(autoincrement())
+  vehiculoId    Int      @map("vehiculo_id")
+  vehiculo      Vehiculo @relation(fields: [vehiculoId], references: [id])
+  compradorId   Int      @map("comprador_id")
+  comprador     Cliente  @relation(fields: [compradorId], references: [id])
+  vendedorId    Int      @map("vendedor_id")
+  vendedor      Usuario  @relation(fields: [vendedorId], references: [id])
+  fechaVenta    DateTime @default(now()) @map("fecha_venta")
+  precioFinal   Float    @map("precio_final")
+  observaciones String?  @db.Text
+
+  @@map("ventas")
+}
+
+// ──────────────────────────────────────────────
+// GASTOS DE VEHÍCULO (ACONDICIONAMIENTO / MARGEN)
+// ──────────────────────────────────────────────
+model GastoVehiculo {
+  id           Int      @id @default(autoincrement())
+  vehiculoId   Int      @map("vehiculo_id")
+  vehiculo     Vehiculo @relation(fields: [vehiculoId], references: [id], onDelete: Cascade)
+  tipoGasto    String   @default("OTRO") @map("tipo_gasto") // MECANICA, CHAPA_PINTURA, ESTETICA, GESTORIA, SERVICE, OTRO
+  descripcion  String
+  monto        Float
+  fecha        DateTime @default(now())
+
+  @@map("gastos_vehiculo")
+}
+
+// ──────────────────────────────────────────────
+// CONSULTA / MINI CRM DE PROSPECTOS
+// ──────────────────────────────────────────────
+model Consulta {
+  id                  Int       @id @default(autoincrement())
+  vehiculoId          Int?      @map("vehiculo_id")
+  vehiculo            Vehiculo? @relation(fields: [vehiculoId], references: [id], onDelete: SetNull)
+  nombreCliente       String    @map("nombre_cliente")
+  emailCliente        String?   @map("email_cliente")
+  telefonoCliente     String?   @map("telefono_cliente")
+  mensaje             String    @db.Text
+  tipoConsulta        String    @default("GENERAL") @map("tipo_consulta") // GENERAL, VEHICULO, TASACION, WHATSAPP
+  estado              String    @default("NUEVO") @map("estado") // NUEVO, CONTACTADO, EN_NEGOCIACION, TEST_DRIVE, VENDIDO, DESCARTADO
+  datosUsadoJson      String?   @map("datos_usado_json") @db.Text // JSON con datos del usado entregado en parte de pago
+  notasInternas       String?   @map("notas_internas") @db.Text
+  empleadoAsignadoId  Int?      @map("empleado_asignado_id")
+  empleadoAsignado    Usuario?  @relation(fields: [empleadoAsignadoId], references: [id], onDelete: SetNull)
+  fechaConsulta       DateTime  @default(now()) @map("fecha_consulta")
+  leido               Boolean   @default(false)
+
+  @@map("consultas")
+}
+
+// ──────────────────────────────────────────────
+// AUDITORIA Y TRAZABILIDAD (SOLO DUEÑO)
+// ──────────────────────────────────────────────
+model Auditoria {
+  id                Int      @id @default(autoincrement())
+  fecha             DateTime @default(now())
+  usuarioId         Int?     @map("usuario_id")
+  nombreUsuario     String   @map("nombre_usuario")
+  rolUsuario        String   @map("rol_usuario")
+  accion            String   // CREACION, MODIFICACION, ELIMINACION, CAMBIO_PRECIO, CAMBIO_ESTADO, VENTA, ANULACION, LOGIN, LOGOUT
+  entidad           String   // VEHICULO, VENTA, EMPLEADO, SUCURSAL, CONSULTA, AUTH
+  entidadId         Int?     @map("entidad_id")
+  detalles          String   @db.Text
+  valoresAnteriores String?  @map("valores_anteriores") @db.Text // JSON stringificado
+  valoresNuevos     String?  @map("valores_nuevos") @db.Text     // JSON stringificado
+  ip                String?
+
+  @@index([fecha])
+  @@index([entidad])
+  @@index([usuarioId])
+  @@map("auditoria")
+}
+
+// ──────────────────────────────────────────────
+// INTEGRACIÓN MERCADO LIBRE
+// ──────────────────────────────────────────────
+model MercadoLibreConfig {
+  id                 Int       @id @default(autoincrement())
+  appId              String?   @map("app_id")
+  clientSecret       String?   @map("client_secret")
+  redirectUri        String?   @map("redirect_uri")
+  mlUserId           String?   @map("ml_user_id")
+  nickname           String?
+  accessToken        String?   @map("access_token") @db.Text
+  refreshToken       String?   @map("refresh_token") @db.Text
+  tokenExpiresAt     DateTime? @map("token_expires_at")
+  activo             Boolean   @default(true)
+  fechaActualizacion DateTime  @default(now()) @updatedAt @map("fecha_actualizacion")
+
+  @@map("mercadolibre_config")
+}
+
